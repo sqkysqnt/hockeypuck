@@ -1,84 +1,39 @@
-/**
- *
- * @license MIT License
- *
- * Copyright (c) 2022 lewis he
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
- * @file      QMI8658_GetDataExample.ino
- * @author    Lewis He (lewishe@outlook.com)
- * @date      2022-10-16
- *
- */
 #include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
 #include "SensorQMI8658.hpp"
-
-
-#define USE_WIRE
-
-#if defined(USE_WIRE)
-#ifndef SENSOR_SDA
-#define SENSOR_SDA  6
-#endif
-
-#ifndef SENSOR_SCL
-#define SENSOR_SCL  7
-#endif
-
-#ifndef SENSOR_IRQ
-#define SENSOR_IRQ  -1
-#endif
-
-#else
-
-//USE SPI
-#ifndef SPI_MOSI
-#define SPI_MOSI                    (35)
-#endif
-
-#ifndef SPI_SCK
-#define SPI_SCK                     (36)
-#endif
-
-#ifndef SPI_MISO
-#define SPI_MISO                    (37)
-#endif
-
-#ifndef IMU_CS
-#define IMU_CS                      (34)
-#endif
-
-#ifndef IMU_INT
-#define IMU_INT                     (33)
-#endif
-
-#endif
+#include <TFT_eSPI.h>
+#include "utilities.h"
 
 
 SensorQMI8658 qmi;
-
 IMUdata acc;
 IMUdata gyr;
 
+TFT_eSPI tft = TFT_eSPI();
+
+
+void displayData(float ax, float ay, float az, float gx, float gy, float gz) {
+    tft.fillScreen(TFT_BLACK); // Clear screen each time for new data
+    // Display accelerometer data
+    tft.setCursor(0, 0);
+    tft.print("ACCEL:");
+    tft.setCursor(0, 20);
+    tft.printf("X: %.2f", ax);
+    tft.setCursor(0, 40);
+    tft.printf("Y: %.2f", ay);
+    tft.setCursor(0, 60);
+    tft.printf("Z: %.2f", az);
+    // Display gyroscope data
+    tft.setCursor(0, 100);
+    tft.print("GYRO:");
+    tft.setCursor(0, 120);
+    tft.printf("X: %.2f", gx);
+    tft.setCursor(0, 140);
+    tft.printf("Y: %.2f", gy);
+    tft.setCursor(0, 160);
+    tft.printf("Z: %.2f", gz);
+}
 
 
 void setup()
@@ -93,13 +48,6 @@ void setup()
 #ifdef USE_WIRE
     //Using WIRE !!
     if (!qmi.begin(Wire, QMI8658_L_SLAVE_ADDRESS, SENSOR_SDA, SENSOR_SCL)) {
-        Serial.println("Failed to find QMI8658 - check your wiring!");
-        while (1) {
-            delay(1000);
-        }
-    }
-#else
-    if (!qmi.begin(IMU_CS, SPI_MOSI, SPI_MISO, SPI_SCK)) {
         Serial.println("Failed to find QMI8658 - check your wiring!");
         while (1) {
             delay(1000);
@@ -201,19 +149,18 @@ void setup()
     * */
     qmi.enableGyroscope();
     qmi.enableAccelerometer();
-
-    // Print register configuration information
     qmi.dumpCtrlRegister();
 
+    Serial.println("Ready to Read data");
 
-
-#if IMU_INT > 0
-    // If you want to enable interrupts, then turn on the interrupt enable
-    qmi.enableINT(SensorQMI8658::INTERRUPT_PIN_1, true);
-    qmi.enableINT(SensorQMI8658::INTERRUPT_PIN_2, false);
-#endif
-
-    Serial.println("Read data now...");
+    
+    // Initialize TFT display - uncommenting the following 6 lines puts the device in a boot loop    
+    //tft.init();
+    //tft.setRotation(0);
+    //tft.fillScreen(TFT_BLACK);
+    //tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    //tft.setTextSize(1);
+    //Serial.println("Display initialized");
 
 }
 
@@ -230,9 +177,9 @@ void loop()
         if (qmi.getAccelerometer(acc.x, acc.y, acc.z)) {
 
             // Print to serial plotter
-            Serial.print("ACCEL.x:"); Serial.print(acc.x); Serial.print(",");
-            Serial.print("ACCEL.y:"); Serial.print(acc.y); Serial.print(",");
-            Serial.print("ACCEL.z:"); Serial.print(acc.z); Serial.println();
+            //Serial.print("ACCEL.x:"); Serial.print(acc.x); Serial.print(",");
+            //Serial.print("ACCEL.y:"); Serial.print(acc.y); Serial.print(",");
+            //Serial.print("ACCEL.z:"); Serial.print(acc.z); Serial.println();
 
             /*
             m2/s to mg
@@ -247,9 +194,9 @@ void loop()
 
 
             // Print to serial plotter
-            Serial.print("GYRO.x:"); Serial.print(gyr.x); Serial.print(",");
-            Serial.print("GYRO.y:"); Serial.print(gyr.y); Serial.print(",");
-            Serial.print("GYRO.z:"); Serial.print(gyr.z); Serial.println();
+            //Serial.print("GYRO.x:"); Serial.print(gyr.x); Serial.print(",");
+            //Serial.print("GYRO.y:"); Serial.print(gyr.y); Serial.print(",");
+            //Serial.print("GYRO.z:"); Serial.print(gyr.z); Serial.println();
 
 
             // Serial.print(" GYRO.x:"); Serial.print(gyr.x); Serial.println(" degrees/sec");
@@ -258,12 +205,14 @@ void loop()
 
         }
 
+        //if (qmi.getAccelerometer(acc.x, acc.y, acc.z) && qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
+        //    displayData(acc.x, acc.y, acc.z, gyr.x, gyr.y, gyr.z); // Show data on TFT display
+        //}
         // Serial.print("Temperature:");
         // Serial.print(qmi.getTemperature_C());
         // Serial.println(" degrees C");
 
     }
-    // delay(100);
+    delay(100);
 }
-
 
